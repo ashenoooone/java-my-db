@@ -1,12 +1,14 @@
 package com.digdes.school.DB;
 
-import org.w3c.dom.ls.LSOutput;
-
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class DB {
     private final List<Map<String, Object>> table = new ArrayList<>();
     private final List<Column> columns = new ArrayList<>();
+
+    private final List<String> operators = new ArrayList<>(List.of(new String[]{"=", "!=", "like", "ilike", ">=", "<=", "<", ">"}));
 
     public DB(List<Column> columns) {
         this.columns.addAll(columns);
@@ -93,11 +95,63 @@ public class DB {
             }
         }
         System.out.println(condition);
-        return this.getTable();
+        return filterData(condition);
     }
 
     private List<Map<String, Object>> selectQuery(String query) {
         System.out.println("SELECTING VALUE");
+        return this.getTable();
+    }
+
+    public List<Map<String, Object>> filterData(String condition) {
+//        like ilike < <= > >= == != and or
+        List<Map<String, Object>> filteredRows = new ArrayList<>();
+        List<Map<String, Object>> rows = this.getTable();
+        System.out.println(condition);
+        Pattern pattern = Pattern.compile("'(.*)' *([^\\d ]*) * '*([^']+)'*$| ");
+        Matcher matcher = pattern.matcher(condition.trim());
+        if (matcher.find()) {
+            Column column = findColumnByName(matcher.group(1));
+            String operator = matcher.group(2);
+            if (!column.getAvailableOperators().contains(operator))
+                throw new IllegalArgumentException("Неподдерживаемый оператор");
+            Class<?> valueType = column.getType().getTypeClass();
+            Object parsedValue = matcher.group(3);
+            if (valueType == String.class) {
+                parsedValue = (String) parsedValue;
+            } else if (valueType == Boolean.class) {
+                parsedValue = (Boolean) parsedValue;
+            } else if (valueType == Long.class) {
+                parsedValue = (Long) parsedValue;
+            } else if (valueType == Double.class) {
+                parsedValue = (Double) parsedValue;
+            } else {
+                throw new IncompatibleColumnTypeException("Неподдерживаемый тип столбца: " + valueType.getSimpleName());
+            }
+            for (Map<String, Object> row : this.getTable()) {
+                for (Map.Entry<String, Object> entry : row.entrySet()) {
+                    if (Objects.equals(entry.getKey(), column.getName())) {
+                        switch (operator) {
+                            case ">":
+                                
+                                break;
+                            case ">=":
+                                break;
+                            case "==":
+                                break;
+                            case "!=":
+                                break;
+                            case "like":
+                                break;
+                            case "ilike":
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+
+
         return this.getTable();
     }
 
