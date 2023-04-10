@@ -59,12 +59,21 @@ public class DB {
     }
 
     private List<Map<String, Object>> deleteQuery(String query) {
-        System.out.println("DELETING VALUE");
-        return this.getTable();
+//        todo добавить поддержку удаления без where
+        Pattern conditionPattern = Pattern.compile("WHERE (.+)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+        Matcher matcher = conditionPattern.matcher(query);
+        if (matcher.find()) {
+            String condition = matcher.group(1);
+            System.out.println(condition);
+            List<Map<String, Object>> rowsToDelete = filterData(condition);
+            this.getTable().removeAll(rowsToDelete);
+            return rowsToDelete;
+        } else {
+            throw new IllegalArgumentException("Некорректно задан запрос");
+        }
     }
 
     private List<Map<String, Object>> updateQuery(String query) {
-//        UPDATE VALUES ‘active’=false, ‘cost’=10.1 where ‘id’=3
         Pattern valuesPattern = Pattern.compile("VALUES (.+?) WHERE (.+)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
         Matcher valuesMatcher = valuesPattern.matcher(query);
         if (valuesMatcher.find()) {
