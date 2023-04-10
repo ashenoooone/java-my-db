@@ -196,6 +196,7 @@ public class DB {
     }
 
     private Object convertToCorrectClass(String value, Column column) {
+        if (Objects.equals(value, "null")) return null;
         if (column.getType().getTypeClass() == Long.class) {
             return Long.valueOf(value);
         } else if (column.getType().getTypeClass() == Double.class) {

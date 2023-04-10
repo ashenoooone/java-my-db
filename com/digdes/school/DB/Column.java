@@ -16,7 +16,7 @@ public class Column {
                 this.availableOperators = new ArrayList<>(List.of("=", "!=", "like", "ilike"));
                 break;
             case BOOLEAN:
-                this.availableOperators = new ArrayList<>(List.of("and", "or"));
+                this.availableOperators = new ArrayList<>(List.of("and", "or", "=", "!="));
                 break;
             case DOUBLE, LONG:
                 this.availableOperators = new ArrayList<>(List.of("=", "!=", "<=", "<", ">=", ">"));
