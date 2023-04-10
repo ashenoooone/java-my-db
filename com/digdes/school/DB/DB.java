@@ -55,11 +55,15 @@ public class DB {
             if (!row.containsKey(column.getName())) row.put(column.getName(), null);
         }
         table.add(row);
-        return this.getTable();
+        return Collections.singletonList(row);
     }
 
     private List<Map<String, Object>> deleteQuery(String query) {
-//        todo добавить поддержку удаления без where
+        if (!query.toLowerCase().contains("where")) {
+            List<Map<String, Object>> boof = new ArrayList<>(this.getTable());
+            this.table.clear();
+            return boof;
+        }
         Pattern conditionPattern = Pattern.compile("WHERE (.+)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
         Matcher matcher = conditionPattern.matcher(query);
         if (matcher.find()) {
@@ -74,6 +78,29 @@ public class DB {
     }
 
     private List<Map<String, Object>> updateQuery(String query) {
+        if (!query.toLowerCase().contains("where")) {
+            Pattern valuesPattern = Pattern.compile("VALUES (.+?)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+            Matcher valuesMatcher = valuesPattern.matcher(query);
+            if (valuesMatcher.find()) {
+                String toUpdate = valuesMatcher.group(1).replace("'", "");
+                String[] valuesStringArray = toUpdate.split(",");
+                for (String values : valuesStringArray) {
+                    String[] splittedValues = values.trim().split("=");
+                    Object value = convertToCorrectClass(splittedValues[1], findColumnByName(splittedValues[0]));
+                    if (value.getClass() == String.class) value = "'" + value + "'";
+                    for (Map<String, Object> row : this.getTable()) {
+                        for (Map.Entry<String, Object> entry : row.entrySet()) {
+                            if (Objects.equals(entry.getKey(), splittedValues[0])) {
+                                entry.setValue(value);
+                            }
+                        }
+                    }
+                }
+                return this.getTable();
+            } else {
+                throw new IllegalArgumentException("Некорректно задан запрос");
+            }
+        }
         Pattern valuesPattern = Pattern.compile("VALUES (.+?) WHERE (.+)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
         Matcher valuesMatcher = valuesPattern.matcher(query);
         if (valuesMatcher.find()) {
@@ -99,6 +126,10 @@ public class DB {
     }
 
     private List<Map<String, Object>> selectQuery(String query) {
+//        todo если нет where то возвращать всю таблицу
+        if (!query.toLowerCase().contains("where")) {
+            return this.getTable();
+        }
         Pattern valuesPattern = Pattern.compile("WHERE (.+)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
         Matcher valuesMatcher = valuesPattern.matcher(query);
         if (valuesMatcher.find()) {
