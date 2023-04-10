@@ -24,14 +24,14 @@ public class DB {
 
     public List<Map<String, Object>> execute(String query) {
         String[] querySplit = query.split(" ");
-        switch (querySplit[0]) {
-            case "INSERT":
+        switch (querySplit[0].toLowerCase()) {
+            case "insert":
                 return insertQuery(query);
-            case "DELETE":
+            case "delete":
                 return deleteQuery(query);
-            case "UPDATE":
+            case "update":
                 return updateQuery(query);
-            case "SELECT":
+            case "select":
                 return selectQuery(query);
             default:
                 throw new IllegalArgumentException("Неверный запрос");
@@ -90,27 +90,33 @@ public class DB {
     }
 
     private List<Map<String, Object>> selectQuery(String query) {
-        System.out.println("SELECTING VALUE");
-        return this.getTable();
+        Pattern valuesPattern = Pattern.compile("WHERE (.+)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+        Matcher valuesMatcher = valuesPattern.matcher(query);
+        if (valuesMatcher.find()) {
+            return filterData(valuesMatcher.group(1));
+        } else {
+            throw new IllegalArgumentException("Некорректно задан запрос");
+        }
     }
 
     public List<Map<String, Object>> filterData(String filterString) {
         List<Map<String, Object>> filteredRows = new ArrayList<>();
         String[] filters = filterString.split("(?i)\\s+(and|or)\\s+");
+        Pattern columnOperatorValuePattern = Pattern.compile("'(\\w+)' +([\\w><!=]+) +'?([\\d.А-Яа-я\\w%]+)'?");
+//        todo добавить поддержку and or операторов
         for (Map<String, Object> row : this.getTable()) {
             boolean matches = false;
             for (String filter : filters) {
-                String[] parts = filter.split("\\s+");
-                if (parts.length != 3) {
-                    throw new IllegalArgumentException("Invalid filter string: " + filterString);
-                }
-                Column column = findColumnByName(parts[0].replaceAll("^'|'$", ""));
-                String operator = parts[1];
+                Matcher matcher = columnOperatorValuePattern.matcher(filter);
+                if (!matcher.find()) throw new IllegalArgumentException("Некорректно задан фильтр");
+
+                Column column = findColumnByName(matcher.group(1));
+                String operator = matcher.group(2);
                 if (!column.getAvailableOperators().contains(operator)) {
                     throw new IllegalArgumentException("Неподдерживаемый оператор");
                 }
                 Object value = row.get(column.getName());
-                Object value2 = convertToCorrectClass(parts[2].replaceAll("^'|'$", ""), column);
+                Object value2 = convertToCorrectClass(matcher.group(3), column);
                 switch (operator) {
                     case "<":
                         if (lessThan(value, value2)) matches = true;
@@ -124,7 +130,7 @@ public class DB {
                     case ">=":
                         if (greaterThanOrEqual(value, value2)) matches = true;
                         break;
-                    case "==":
+                    case "=":
                         if (equal(value, value2)) matches = true;
                         break;
                     case "!=":
