@@ -1,5 +1,8 @@
 package com.digdes.school.DB;
+
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class DB {
     private final List<Map<String, Object>> table = new ArrayList<>();
@@ -44,26 +47,8 @@ public class DB {
                 throw new IllegalArgumentException("Ошибка синтаксиса");
             }
             String key = parts[0].trim().replace("'", "");
-            String stringValue = parts[1].trim();
-            ColumnType columnType;
-            try {
-                columnType = this.findColumnByName(key).getType();
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Неверное имя столбца: " + key);
-            }
-            Class<?> valueType = columnType.getTypeClass();
-            Object parsedValue;
-            if (valueType == String.class) {
-                parsedValue = stringValue;
-            } else if (valueType == Boolean.class) {
-                parsedValue = Boolean.parseBoolean(stringValue);
-            } else if (valueType == Long.class) {
-                parsedValue = Long.valueOf(stringValue);
-            } else if (valueType == Double.class) {
-                parsedValue = Double.valueOf(stringValue);
-            } else {
-                throw new IncompatibleColumnTypeException("Неподдерживаемый тип столбца: " + valueType.getSimpleName());
-            }
+            Column column = findColumnByName(key);
+            Object parsedValue = convertToCorrectClass(parts[1].trim(), column);
             row.put(key, parsedValue);
         }
         for (Column column : this.columns) {
@@ -80,19 +65,28 @@ public class DB {
 
     private List<Map<String, Object>> updateQuery(String query) {
 //        UPDATE VALUES ‘active’=false, ‘cost’=10.1 where ‘id’=3
-        String[] values = query.replace("UPDATE VALUES", "").split(",");
-        Map<String, Object> row = new HashMap<>();
-        List<String> valuesToUpdate = new ArrayList<>();
-        String condition = "";
-        for (String value : values) {
-            String[] splittedValue = value.toLowerCase().trim().split("where");
-            valuesToUpdate.add(splittedValue[0]);
-            if (splittedValue.length == 2) {
-                condition = splittedValue[1].trim();
+        Pattern valuesPattern = Pattern.compile("VALUES (.+?) WHERE (.+)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+        Matcher valuesMatcher = valuesPattern.matcher(query);
+        if (valuesMatcher.find()) {
+            String toUpdate = valuesMatcher.group(1).replace("'", "");
+            String condition = valuesMatcher.group(2);
+            List<Map<String, Object>> rowsToUpdate = filterData(condition);
+            String[] valuesStringArray = toUpdate.split(",");
+            for (String values : valuesStringArray) {
+                String[] splittedValues = values.trim().split("=");
+                Object value = convertToCorrectClass(splittedValues[1], findColumnByName(splittedValues[0]));
+                for (Map<String, Object> row : rowsToUpdate) {
+                    for (Map.Entry<String, Object> entry : row.entrySet()) {
+                        if (Objects.equals(entry.getKey(), splittedValues[0])) {
+                            entry.setValue(value);
+                        }
+                    }
+                }
             }
+            return rowsToUpdate;
+        } else {
+            throw new IllegalArgumentException("Некорректно задан запрос");
         }
-        System.out.println("------------------------------------------------");
-        return filterData(condition);
     }
 
     private List<Map<String, Object>> selectQuery(String query) {
@@ -110,26 +104,13 @@ public class DB {
                 if (parts.length != 3) {
                     throw new IllegalArgumentException("Invalid filter string: " + filterString);
                 }
-                String columnName = parts[0].replaceAll("^'|'$", "");
-                Column column = findColumnByName(columnName);
+                Column column = findColumnByName(parts[0].replaceAll("^'|'$", ""));
                 String operator = parts[1];
-                String valueString = parts[2].replaceAll("^'|'$", "");
-                Object value = row.get(columnName);
-                Object value2;
                 if (!column.getAvailableOperators().contains(operator)) {
                     throw new IllegalArgumentException("Неподдерживаемый оператор");
                 }
-                if (value instanceof Long) {
-                    value2 = Long.valueOf(valueString);
-                } else if (value instanceof String) {
-                    value2 = valueString;
-                } else if (value instanceof Double) {
-                    value2 = Double.valueOf(valueString);
-                } else if (value instanceof Boolean) {
-                    value2 = Boolean.valueOf(valueString);
-                } else {
-                    throw new IllegalArgumentException("Неподдерживаемый тип переменной");
-                }
+                Object value = row.get(column.getName());
+                Object value2 = convertToCorrectClass(parts[2].replaceAll("^'|'$", ""), column);
                 switch (operator) {
                     case "<":
                         if (lessThan(value, value2)) matches = true;
@@ -138,7 +119,6 @@ public class DB {
                         if (lessThanOrEqual(value, value2)) matches = true;
                         break;
                     case ">":
-                        System.out.println(greaterThan(value, value2));
                         if (greaterThan(value, value2)) matches = true;
                         break;
                     case ">=":
@@ -169,34 +149,45 @@ public class DB {
         return filteredRows;
     }
 
+    private Object convertToCorrectClass(String value, Column column) {
+        if (column.getType().getTypeClass() == Long.class) {
+            return Long.valueOf(value);
+        } else if (column.getType().getTypeClass() == Double.class) {
+            return Double.valueOf(value);
+        } else if (column.getType().getTypeClass() == Boolean.class) {
+            return Boolean.valueOf(value);
+        } else if (column.getType().getTypeClass() == String.class) {
+            return value;
+        } else throw new IllegalArgumentException("Неподдерживаемый тип");
+    }
 
-    private static boolean like(Object value1, Object value2) {
+    private boolean like(Object value1, Object value2) {
         String pattern = ((String) value2).replace("%", ".*");
         return ((String) value1).matches(pattern);
     }
 
-    private static boolean iLike(Object value1, Object value2) {
+    private boolean iLike(Object value1, Object value2) {
         String pattern = ((String) value2).replace("%", ".*").toLowerCase();
         return ((String) value1).toLowerCase().matches(pattern);
     }
 
-    private static boolean lessThan(Object value1, Object value2) {
+    private boolean lessThan(Object value1, Object value2) {
         return ((Comparable) value1).compareTo(value2) < 0;
     }
 
-    private static boolean lessThanOrEqual(Object value1, Object value2) {
+    private boolean lessThanOrEqual(Object value1, Object value2) {
         return ((Comparable) value1).compareTo(value2) <= 0;
     }
 
-    private static boolean greaterThan(Object value1, Object value2) {
+    private boolean greaterThan(Object value1, Object value2) {
         return ((Comparable) value1).compareTo(value2) > 0;
     }
 
-    private static boolean greaterThanOrEqual(Object value1, Object value2) {
+    private boolean greaterThanOrEqual(Object value1, Object value2) {
         return ((Comparable) value1).compareTo(value2) >= 0;
     }
 
-    private static boolean equal(Object value1, Object value2) {
+    private boolean equal(Object value1, Object value2) {
         if (value1 == null || value2 == null) {
             return value1 == null && value2 == null;
         } else {
@@ -204,7 +195,7 @@ public class DB {
         }
     }
 
-    private static boolean notEqual(Object value1, Object value2) {
+    private boolean notEqual(Object value1, Object value2) {
         return !equal(value1, value2);
     }
 
