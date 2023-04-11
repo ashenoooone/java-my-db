@@ -3,7 +3,6 @@ package com.digdes.school;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-//        INSERT VALUES 'lastname' = 'Федоров', 'id'=3, 'age'=40, 'active'=true
         JavaSchoolStarter starter = new JavaSchoolStarter();
         System.out.println(starter.execute("INSERT VALUES 'id'=1, 'age'=40, 'active'=true"));
         System.out.println(starter.execute("INSERT VALUES 'lastname' = 'Федоров', 'id'=0, 'age'=50, 'active'=true"));

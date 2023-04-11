@@ -23,6 +23,12 @@ public class DB {
     }
 
     public List<Map<String, Object>> execute(String query) {
+        /**
+         Метод execute выполняет запрос в зависимости от его типа: insert, delete, update или select.
+         @param query строка запроса, которую необходимо выполнить.
+         @return список отображений, представляющих результат выполнения запроса.
+         @throws IllegalArgumentException если запрос имеет неверный формат или тип.
+         */
         String[] querySplit = query.split(" ");
         switch (querySplit[0].toLowerCase()) {
             case "insert":
@@ -39,6 +45,15 @@ public class DB {
     }
 
     private List<Map<String, Object>> insertQuery(String query) {
+        /**
+         Метод для выполнения операции INSERT в таблице.
+         Запрос может содержать значения для всех столбцов таблицы,
+         если значения не указаны, то для соответствующих столбцов будет использовано значение null.
+         @param query строка запроса INSERT для выполнения в таблице
+         @return список, содержащий только один элемент - вставленную строку в виде Map<String, Object>
+         @throws IllegalArgumentException если в запросе есть синтаксические ошибки или
+         указаны некорректные типы данных для столбцов таблицы
+         */
         String[] values = query.replace("INSERT VALUES", "").split(",");
         Map<String, Object> row = new HashMap<>();
         for (String value : values) {
@@ -59,6 +74,14 @@ public class DB {
     }
 
     private List<Map<String, Object>> deleteQuery(String query) {
+        /**
+         Выполняет запрос на удаление данных из таблицы и возвращает результат в виде списка карт.
+         @param query строка запроса, который должен быть выполнен в таблице.
+         Если запрос не содержит "WHERE" выражения, то метод удаляет все строки таблицы.
+         В запросе должно присутствовать выражение "WHERE" для задания условия удаления строк.
+         @return список карт, содержащих удаленные строки таблицы.
+         @throws IllegalArgumentException если переданная строка запроса некорректна.
+         */
         if (!query.toLowerCase().contains("where")) {
             List<Map<String, Object>> boof = new ArrayList<>(this.getTable());
             this.table.clear();
@@ -78,6 +101,13 @@ public class DB {
     }
 
     private List<Map<String, Object>> updateQuery(String query) {
+        /**
+         Выполняет запрос на обновление данных в таблице и возвращает результат в виде списка строк.
+         @param query строка запроса, который должен быть выполнен в таблице.
+         Если запрос не содержит "WHERE" выражения, то метод обновляет все строки таблицы.
+         @return список строк, содержащих обновленные строки таблицы.
+         @throws IllegalArgumentException если переданная строка запроса некорректна.
+         */
         if (!query.toLowerCase().contains("where")) {
             Pattern valuesPattern = Pattern.compile("VALUES (.+?)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
             Matcher valuesMatcher = valuesPattern.matcher(query);
@@ -126,7 +156,13 @@ public class DB {
     }
 
     private List<Map<String, Object>> selectQuery(String query) {
-//        todo если нет where то возвращать всю таблицу
+        /**
+         Выполняет запрос к таблице и возвращает результат в виде списка строк.
+         @param query строка запроса, который должен быть выполнен в таблице.
+         Если запрос не содержит "WHERE" выражения, то метод вернет всю таблицу.
+         @return список строк, подходящих под условие.
+         @throws IllegalArgumentException если переданная строка запроса некорректна.
+         */
         if (!query.toLowerCase().contains("where")) {
             return this.getTable();
         }
@@ -140,6 +176,15 @@ public class DB {
     }
 
     public List<Map<String, Object>> filterData(String filterString) {
+        /**
+         Фильтрует данные в таблице по заданному фильтру.
+         @param filterString строка фильтра, которая содержит одно или несколько условий в формате:
+         @return отфильтрованные строки таблицы в виде списка отображений,
+         каждое отображение представляет одну строку таблицы
+         и содержит пары ключ-значение для каждого столбца таблицы.
+         @throws IllegalArgumentException если строка фильтра задана
+         некорректно или используется неподдерживаемый оператор.
+         */
         List<Map<String, Object>> filteredRows = new ArrayList<>();
         String[] filters = filterString.split("(?i)\\s+(and|or)\\s+");
         Pattern columnOperatorValuePattern = Pattern.compile("'(\\w+)' +([\\w><!=]+) +'?([\\d.А-Яа-я\\w%]+)'?");
@@ -196,6 +241,14 @@ public class DB {
     }
 
     private Object convertToCorrectClass(String value, Column column) {
+        /**
+         Конвертирует переданное значение в правильный тип данных в соответствии с типом колонки.
+         Если передано значение "null", то возвращается null.
+         @param value строковое значение, которое нужно преобразовать.
+         @param column колонка, тип данных которой нужно использовать для преобразования.
+         @return объект, который является экземпляром класса соответствующего типа данных колонки.
+         @throws IllegalArgumentException если тип данных колонки не поддерживается.
+         */
         if (Objects.equals(value, "null")) return null;
         if (column.getType().getTypeClass() == Long.class) {
             return Long.valueOf(value);
@@ -252,6 +305,12 @@ public class DB {
 
 
     private Column findColumnByName(String columnName) {
+        /**
+         Поиск колонки по имени в таблице.
+         @param columnName имя колонки для поиска
+         @return найденную колонку с заданным именем
+         @throws IllegalArgumentException если колонка с таким именем не найдена
+         */
         for (Column column : this.columns) {
             if (Objects.equals(columnName, column.getName())) return column;
         }
