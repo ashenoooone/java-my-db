@@ -5,6 +5,7 @@
 ## TODO
 
 - [x] insert запрос
-- [ ] update запрос
-- [ ] delete запрос
-- [ ] select запрос
+- [x] update запрос
+- [x] delete запрос
+- [x] select запрос
+- [ ] and or операторы

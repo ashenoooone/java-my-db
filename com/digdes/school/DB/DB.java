@@ -46,23 +46,32 @@ public class DB {
      *                                  указаны некорректные типы данных для столбцов таблицы
      */
     private List<Map<String, Object>> insertQuery(String query) {
-        String[] values = query.replace("INSERT VALUES", "").split(",");
-        Map<String, Object> row = new HashMap<>();
-        for (String value : values) {
-            String[] parts = value.trim().split("=");
-            if (parts.length != 2) {
-                throw new IllegalArgumentException("Ошибка синтаксиса");
+        Pattern valuesPattern = Pattern.compile("VALUES (.+?)$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+        Matcher valuesMatcher = valuesPattern.matcher(query);
+        if (valuesMatcher.find()) {
+            String[] values = valuesMatcher.group(1).split(",");
+            Map<String, Object> row = new HashMap<>();
+            for (String value : values) {
+                String[] parts = value.trim().split("=");
+                if (parts.length != 2) {
+                    throw new IllegalArgumentException("Ошибка синтаксиса");
+                }
+                String key = parts[0].trim().replace("'", "");
+                Column column = findColumnByName(key);
+                Object parsedValue = convertToCorrectClass(parts[1].trim(), column);
+                if (column.getType().getTypeClass() == String.class
+                        && !Pattern.matches("'.+'", parts[1].trim()))
+                    throw new IllegalArgumentException("Некорректно задано значение для: " + column.getName());
+                row.put(key, parsedValue);
             }
-            String key = parts[0].trim().replace("'", "");
-            Column column = findColumnByName(key);
-            Object parsedValue = convertToCorrectClass(parts[1].trim(), column);
-            row.put(key, parsedValue);
+            for (Column column : this.columns) {
+                if (!row.containsKey(column.getName())) row.put(column.getName(), null);
+            }
+            table.add(row);
+            return Collections.singletonList(row);
+        } else {
+            throw new IllegalArgumentException("Ошибка синтаксиса");
         }
-        for (Column column : this.columns) {
-            if (!row.containsKey(column.getName())) row.put(column.getName(), null);
-        }
-        table.add(row);
-        return Collections.singletonList(row);
     }
 
     /**
@@ -84,7 +93,6 @@ public class DB {
         Matcher matcher = conditionPattern.matcher(query);
         if (matcher.find()) {
             String condition = matcher.group(1);
-            System.out.println(condition);
             List<Map<String, Object>> rowsToDelete = filterData(condition);
             this.getTable().removeAll(rowsToDelete);
             return rowsToDelete;
