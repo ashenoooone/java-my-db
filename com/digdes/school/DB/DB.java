@@ -198,13 +198,15 @@ public class DB {
             for (String filter : filters) {
                 Matcher matcher = columnOperatorValuePattern.matcher(filter);
                 if (!matcher.find()) throw new IllegalArgumentException("Некорректно задан фильтр");
-
                 Column column = findColumnByName(matcher.group(1));
                 String operator = matcher.group(2);
                 if (!column.getAvailableOperators().contains(operator)) {
                     throw new IllegalArgumentException("Неподдерживаемый оператор");
                 }
                 Object value = row.get(column.getName());
+                if (value.getClass() == String.class) {
+                    value = ((String) value).replace("'", "");
+                }
                 Object value2 = convertToCorrectClass(matcher.group(3), column);
                 switch (operator) {
                     case "<":
@@ -318,7 +320,7 @@ public class DB {
      */
     private Column findColumnByName(String columnName) {
         for (Column column : this.columns) {
-            if (Objects.equals(columnName, column.getName())) return column;
+            if (Objects.equals(columnName.toLowerCase(), column.getName().toLowerCase())) return column;
         }
         throw new IllegalArgumentException("Такого столбца нет");
     }

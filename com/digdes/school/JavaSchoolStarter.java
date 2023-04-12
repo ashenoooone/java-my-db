@@ -21,7 +21,6 @@ public class JavaSchoolStarter {
     }
 
     public List<Map<String, Object>> execute(String request) throws Exception {
-        System.out.println(request);
         return this.db.execute(request);
     }
 
